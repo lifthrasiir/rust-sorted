@@ -1,0 +1,17 @@
+[package]
+
+name = "sorted"
+version = "0.0.1"
+authors = ["Kang Seonghoon <public+git@mearie.org>"]
+
+[[lib]]
+
+name = "sorted"
+path = "lib.rs"
+
+[dev-dependencies.quickcheck]
+git = "https://github.com/BurntSushi/quickcheck"
+
+[dev-dependencies.quickcheck_macros]
+git = "https://github.com/BurntSushi/quickcheck"
+
