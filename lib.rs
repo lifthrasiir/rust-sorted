@@ -34,8 +34,8 @@ fn replace_garbage<T>(a: &mut T, mut v: T) {
 
 /// Returns the first index `i` such that `v[i]` is no `Less` than the target,
 /// or `v.len()` if there is no such `i`.
-/// Similar to `vec::bsearch` but `v[i]` (if any) needs not be `Equal` to the target.
-fn bsearch_no_less<T>(v: &[T], f: |&T| -> Ordering) -> uint {
+/// Similar to `vec::binary_search` but `v[i]` (if any) needs not be `Equal` to the target.
+fn binary_search_no_less<T>(v: &[T], f: |&T| -> Ordering) -> uint {
     let mut base = 0;
     let mut limit = v.len();
     while limit != 0 { // invariant: v[base-1] (if any) < target <= v[base+limit] (if any)
@@ -50,16 +50,16 @@ fn bsearch_no_less<T>(v: &[T], f: |&T| -> Ordering) -> uint {
 }
 
 #[quickcheck]
-fn test_bsearch_no_less(mut v: Vec<uint>, x: uint) -> bool {
+fn test_binary_search_no_less(mut v: Vec<uint>, x: uint) -> bool {
     v.sort();
-    let i = bsearch_no_less(v.as_slice(), |&y| y.cmp(&x));
+    let i = binary_search_no_less(v.as_slice(), |&y| y.cmp(&x));
     v.slice_to(i).iter().all(|&y| y < x) && v.slice_from(i).iter().all(|&y| y >= x)
 }
 
 /// Returns the first index `i` such that `v[i]` is `Greater` than the target,
 /// or `v.len()` if there is no such `i`.
-/// Similar to `vec::bsearch` but `v[i]` (if any) needs not be `Equal` to the target.
-fn bsearch_greater<T>(v: &[T], f: |&T| -> Ordering) -> uint {
+/// Similar to `vec::binary_search` but `v[i]` (if any) needs not be `Equal` to the target.
+fn binary_search_greater<T>(v: &[T], f: |&T| -> Ordering) -> uint {
     let mut base = 0;
     let mut limit = v.len();
     while limit != 0 { // invariant: v[base-1] (if any) <= target < v[base+limit] (if any)
@@ -74,9 +74,9 @@ fn bsearch_greater<T>(v: &[T], f: |&T| -> Ordering) -> uint {
 }
 
 #[quickcheck]
-fn test_bsearch_greater(mut v: Vec<uint>, x: uint) -> bool {
+fn test_binary_search_greater(mut v: Vec<uint>, x: uint) -> bool {
     v.sort();
-    let i = bsearch_greater(v.as_slice(), |&y| y.cmp(&x));
+    let i = binary_search_greater(v.as_slice(), |&y| y.cmp(&x));
     v.slice_to(i).iter().all(|&y| y <= x) && v.slice_from(i).iter().all(|&y| y > x)
 }
 
@@ -295,7 +295,7 @@ impl<'a, T: Ord> SortedSlice<'a, T> {
     }
 }
 
-impl<'a, T: Ord> /*ImmutableVector<'a, T> for*/ SortedSlice<'a, T> {
+impl<'a, T: Ord> /*ImmutableSlice<'a, T> for*/ SortedSlice<'a, T> {
     pub fn slice(&self, start: uint, end: uint) -> SortedSlice<'a, T> {
         SortedSlice { inner: self.inner.slice(start, end) }
     }
@@ -329,7 +329,7 @@ impl<'a, T: Ord> /*ImmutableVector<'a, T> for*/ SortedSlice<'a, T> {
         self.inner.rsplitn(n, pred)
     }
 
-    pub fn windows(self, size: uint) -> slice::Windows<'a, T> {
+    pub fn windows(self, size: uint) -> core::slice::Windows<'a, T> {
         self.inner.windows(size)
     }
 
@@ -349,16 +349,8 @@ impl<'a, T: Ord> /*ImmutableVector<'a, T> for*/ SortedSlice<'a, T> {
         SortedSlice { inner: self.inner.tail() }
     }
 
-    pub fn tailn(&self, n: uint) -> SortedSlice<'a, T> {
-        SortedSlice { inner: self.inner.tailn(n) }
-    }
-
     pub fn init(&self) -> SortedSlice<'a, T> {
         SortedSlice { inner: self.inner.init() }
-    }
-
-    pub fn initn(&self, n: uint) -> SortedSlice<'a, T> {
-        SortedSlice { inner: self.inner.initn(n) }
     }
 
     pub fn last(&self) -> Option<&'a T> {
@@ -369,30 +361,22 @@ impl<'a, T: Ord> /*ImmutableVector<'a, T> for*/ SortedSlice<'a, T> {
         self.inner.as_ptr()
     }
 
-    pub fn bsearch(&self, f: |&T| -> Ordering) -> Option<uint> {
-        self.inner.bsearch(f)
-    }
-
-    pub fn shift_ref(&mut self) -> Option<&'a T> {
-        self.inner.shift_ref()
-    }
-
-    pub fn pop_ref(&mut self) -> Option<&'a T> {
-        self.inner.pop_ref()
+    pub fn binary_search(&self, f: |&T| -> Ordering) -> core::slice::BinarySearchResult {
+        self.inner.binary_search(f)
     }
 }
 
-impl<'a, T: Ord> /*ImmutableEqVector<'a, T> for*/ SortedSlice<'a, T> {
+impl<'a, T: Ord> /*ImmutableEqSlice<'a, T> for*/ SortedSlice<'a, T> {
     pub fn lower_bound(&self, t: &T) -> uint {
-        bsearch_no_less(self.inner, |v| v.cmp(t))
+        binary_search_no_less(self.inner, |v| v.cmp(t))
     }
 
     pub fn upper_bound(&self, t: &T) -> uint {
-        bsearch_greater(self.inner, |v| v.cmp(t))
+        binary_search_greater(self.inner, |v| v.cmp(t))
     }
 
     pub fn position_elem(&self, t: &T) -> Option<uint> {
-        let i = bsearch_no_less(self.inner, |v| v.cmp(t));
+        let i = binary_search_no_less(self.inner, |v| v.cmp(t));
         if i < self.inner.len() && self.inner[i] == *t {
             Some(i)
         } else {
@@ -401,7 +385,7 @@ impl<'a, T: Ord> /*ImmutableEqVector<'a, T> for*/ SortedSlice<'a, T> {
     }
 
     pub fn rposition_elem(&self, t: &T) -> Option<uint> {
-        let i = bsearch_greater(self.inner, |v| v.cmp(t));
+        let i = binary_search_greater(self.inner, |v| v.cmp(t));
         if i > 0 && self.inner[i-1] == *t {
             Some(i-1)
         } else {
@@ -418,9 +402,9 @@ impl<'a, T: Ord> /*ImmutableEqVector<'a, T> for*/ SortedSlice<'a, T> {
     }
 }
 
-impl<'a, T: Ord> /*ImmutableOrdVector<'a, T> for*/ SortedSlice<'a, T> {
-    pub fn bsearch_elem(&self, x: &T) -> Option<uint> {
-        self.inner.bsearch_elem(x)
+impl<'a, T: Ord> /*ImmutableOrdSlice<'a, T> for*/ SortedSlice<'a, T> {
+    pub fn binary_search_elem(&self, x: &T) -> core::slice::BinarySearchResult {
+        self.inner.binary_search_elem(x)
     }
 }
 
@@ -438,7 +422,7 @@ impl<'a, T: Ord + Clone> /*ImmutableCloneableVector<T> for*/ SortedSlice<'a, T> 
     pub fn permutations(&self) -> slice::Permutations<T> { self.inner.permutations() }
 }
 
-impl<'a, T: Ord> Vector<T> for SortedSlice<'a, T> {
+impl<'a, T: Ord> Slice<T> for SortedSlice<'a, T> {
     fn as_slice<'a>(&'a self) -> &'a [T] { self.inner.as_slice() }
 }
 
@@ -452,7 +436,7 @@ impl<'a, T: Ord> Default for SortedSlice<'a, T> {
 }
 
 impl<'a, T: Ord> Set<T> for SortedSlice<'a, T> {
-    fn contains(&self, value: &T) -> bool { self.inner.bsearch_elem(value).is_some() }
+    fn contains(&self, value: &T) -> bool { self.inner.binary_search_elem(value).found().is_some() }
     fn is_disjoint(&self, other: &SortedSlice<T>) -> bool { is_disjoint(self.inner, other.inner) }
     fn is_subset(&self, other: &SortedSlice<T>) -> bool { is_subset(self.inner, other.inner) }
     fn is_superset(&self, other: &SortedSlice<T>) -> bool { is_subset(other.inner, self.inner) }
@@ -541,7 +525,7 @@ impl<T: Ord + Clone> SortedVec<T> {
     }
 
     pub fn grow(&mut self, n: uint, value: &T) {
-        let i = bsearch_greater(self.inner.as_slice(), |v| v.cmp(value));
+        let i = binary_search_greater(self.inner.as_slice(), |v| v.cmp(value));
         insert_many(&mut self.inner, i, n, value);
     }
 }
@@ -598,10 +582,6 @@ impl<T: Ord> SortedVec<T> {
 
     pub fn tail<'a>(&'a self) -> SortedSlice<'a, T> {
         SortedSlice { inner: self.inner.tail() }
-    }
-
-    pub fn tailn<'a>(&'a self, n: uint) -> SortedSlice<'a, T> {
-        SortedSlice { inner: self.inner.tailn(n) }
     }
 
     pub fn last<'a>(&'a self) -> Option<&'a T> {
@@ -716,7 +696,7 @@ impl<T: Ord> PartialOrd for SortedVec<T> {
 
 impl<T: Ord> Eq for SortedVec<T> {}
 
-impl<T: Ord, V: Vector<T>> Equiv<V> for SortedVec<T> {
+impl<T: Ord, V: Slice<T>> Equiv<V> for SortedVec<T> {
     fn equiv(&self, other: &V) -> bool { self.inner.equiv(other) }
 }
 
@@ -730,11 +710,11 @@ impl<T: Ord + Clone> CloneableVector<T> for SortedVec<T> {
     fn into_vec(self) -> Vec<T> { self.inner.into_vec() }
 }
 
-impl<T: Ord> Vector<T> for SortedVec<T> {
+impl<T: Ord> Slice<T> for SortedVec<T> {
     fn as_slice<'a>(&'a self) -> &'a [T] { self.inner.as_slice() }
 }
 
-impl<T: Ord + Clone, V: Vector<T>> Add<V, SortedVec<T>> for SortedVec<T> {
+impl<T: Ord + Clone, V: Slice<T>> Add<V, SortedVec<T>> for SortedVec<T> {
     fn add(&self, rhs: &V) -> SortedVec<T> {
         let mut lhs = self.clone();
         lhs.push_all(SortedVec::from_unsorted_slice(rhs.as_slice()).as_sorted_slice());
@@ -756,7 +736,7 @@ impl<T: Ord> Mutable for SortedVec<T> {
 
 impl<T: Ord> MutableSeq<T> for SortedVec<T> {
     fn push(&mut self, value: T) {
-        let i = bsearch_greater(self.inner.as_slice(), |v| v.cmp(&value));
+        let i = binary_search_greater(self.inner.as_slice(), |v| v.cmp(&value));
         self.inner.insert(i, value);
     }
 
@@ -780,7 +760,7 @@ impl<T: Ord> Set<T> for SortedVec<T> {
 
 impl<T: Ord> MutableSet<T> for SortedVec<T> {
     fn insert(&mut self, value: T) -> bool {
-        let i = bsearch_greater(self.inner.as_slice(), |v| v.cmp(&value));
+        let i = binary_search_greater(self.inner.as_slice(), |v| v.cmp(&value));
         if i > 0 && self.inner[i-1] == value {
             false
         } else {
@@ -790,7 +770,7 @@ impl<T: Ord> MutableSet<T> for SortedVec<T> {
     }
 
     fn remove(&mut self, value: &T) -> bool {
-        let i = bsearch_no_less(self.inner.as_slice(), |v| v.cmp(value));
+        let i = binary_search_no_less(self.inner.as_slice(), |v| v.cmp(value));
         if i < self.inner.len() && self.inner[i] == *value {
             self.inner.remove(i);
             true
